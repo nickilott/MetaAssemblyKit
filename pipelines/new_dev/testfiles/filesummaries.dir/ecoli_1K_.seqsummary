@@ -1,6 +1,0 @@
-name	ecoli_1K_.fastq.1.gz
-format	fastq
-compressed	True
-paired	True
-interleaved	False
-read_count	2054.0
