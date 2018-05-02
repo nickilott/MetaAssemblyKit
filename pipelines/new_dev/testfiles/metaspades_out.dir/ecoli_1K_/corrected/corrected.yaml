@@ -1,0 +1,8 @@
+- "left reads":
+  - "/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/metaspades_out.dir/ecoli_1K_/corrected/ecoli_1K_.fastq.1.00.0_0.cor.fastq.gz"
+  "orientation": "fr"
+  "right reads":
+  - "/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/metaspades_out.dir/ecoli_1K_/corrected/ecoli_1K_.fastq.2.00.0_0.cor.fastq.gz"
+  "single reads":
+  - "/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/metaspades_out.dir/ecoli_1K_/corrected/ecoli_1K_.fastq._unpaired.00.0_0.cor.fastq.gz"
+  "type": "paired-end"

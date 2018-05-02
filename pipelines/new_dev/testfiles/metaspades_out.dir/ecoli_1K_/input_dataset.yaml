@@ -1,0 +1,6 @@
+- "left reads":
+  - "/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/ecoli_1K_.fastq.1.gz"
+  "orientation": "fr"
+  "right reads":
+  - "/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/ecoli_1K_.fastq.2.gz"
+  "type": "paired-end"

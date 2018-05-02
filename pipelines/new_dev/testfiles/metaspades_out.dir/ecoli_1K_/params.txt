@@ -1,0 +1,35 @@
+Command line: /gfs/apps/bio/SPAdes-3.11.1/bin/metaspades.py	-1	/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/ecoli_1K_.fastq.1.gz	-2	/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/ecoli_1K_.fastq.2.gz	--threads	16	--memory	250	-k	auto	--phred-offset	auto	-o	/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/metaspades_out.dir/ecoli_1K_	
+
+System information:
+  SPAdes version: 3.11.1
+  Python version: 3.6.2
+  OS: Linux-2.6.32-573.el6.x86_64-x86_64-with-centos-6.7-Final
+
+Output dir: /gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/metaspades_out.dir/ecoli_1K_
+Mode: read error correction and assembling
+Debug mode is turned OFF
+
+Dataset parameters:
+  Metagenomic mode
+  Reads:
+    Library number: 1, library type: paired-end
+      orientation: fr
+      left reads: ['/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/ecoli_1K_.fastq.1.gz']
+      right reads: ['/gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/ecoli_1K_.fastq.2.gz']
+      interlaced reads: not specified
+      single reads: not specified
+Read error correction parameters:
+  Iterations: 1
+  PHRED offset will be auto-detected
+  Corrected reads will be compressed (with gzip)
+Assembly parameters:
+  k: [21, 33, 55]
+  Repeat resolution is enabled
+  Mismatch careful mode is turned OFF
+  MismatchCorrector will be SKIPPED
+  Coverage cutoff is turned OFF
+Other parameters:
+  Dir for temp files: /gfs/devel/majackson/MetaAssemblyKit/pipelines/new_dev/testfiles/metaspades_out.dir/ecoli_1K_/tmp
+  Threads: 16
+  Memory limit (in Gb): 250
+

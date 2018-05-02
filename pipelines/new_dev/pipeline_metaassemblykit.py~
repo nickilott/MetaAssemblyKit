@@ -1,0 +1,294 @@
+"""
+=============================
+Metagenome assembly pipeline
+=============================
+
+:Author: Nick Ilott & Matt Jackson
+:Release: $Id$
+:Date: |today|
+:Tags: Python
+
+The MetaAssemblyKit pipeline takes reads from metagenomic or metatranscirptomic sequencing 
+in fasta/fastq files and assembles them into contigs.
+
+Overview
+========
+
+The pipeline assembles all the reads within a given fasta/fastq file using a range of possible 
+assembly tools designed for metagenomic or transcriptomic assembly. It can handle both single and 
+paired end reads and provides summary statistics relating to the assembly.
+
+Assembly stategy
+----------------
+
+While there exist many tools for assembling reads from single genomes,
+only recently has software been specifically developed (or extended)
+to allow for the assembly of metagenomes. The major factor affecting
+the ability to assemble a metagenome is the diversity of the sample.
+Accurate assembly of long contigs is difficult in the presence of many
+species at differential abundances. This is in constrast to single
+genome assembly where reads are (or should be) uniformly sampled
+across the genome.
+
+This pieline provides a range of available software for the assembly of metagenomes.
+Assembly of metatranscriptomic data is a lesser established field,
+presently metagenomic assemblers or single genome transcriptome assemblers have been
+applied within this field. Hence, we also implement some transcriptome assembly tools.
+These should only be applied to metatranscriptomic data.
+
+Considerations
+--------------
+
+Metagenomics is a young and rapidly developing field. There is, as
+yet, no gold standard for assembly. It is likely that the presence of
+multiple, highly related species will lead to the assembly of
+chimeric contigs i.e. contigs derived from more than one species. It
+is generally considered that longer K-mer lengths used in the
+construction of the de-bruijn graph (for de-bruijn graph assemblers)
+will result in fewer chimeras. Nevertheless, longer k-mers may also
+result in more, short contigs being produced as a result of a
+neccessity for a greater overlap between nodes in the graph. The
+length of k-mer chosen is also dependent on the length of reads that
+you are trying to assemble - longer reads means you can use longer
+k-mers. Which k-mer to use in the assembly process is therefore
+dependent on the data used and the expected complexity of the
+sample. We make no effort here to advise on k-mer length.
+Metatranscriptomic data does not fit the assumptions made by
+many of the metagenomic assembly algorithms and the transcriptomic
+assembly tools assume RNA from a single source organism. So whilst
+this pipeline can be used for these data, the results must be considered
+with caution and within this context.
+
+  
+Usage
+=====
+
+See :ref:`PipelineSettingUp` and :ref:`PipelineRunning` on general
+information how to use CGAT pipelines.
+
+Configuration
+-------------
+
+The pipeline requires a configured :file:`pipeline.ini` file. 
+
+The sphinxreport report requires a :file:`conf.py` and
+:file:`sphinxreport.ini` file (see :ref:`PipelineDocumenation`). To
+start with, use the files supplied with the :ref:`Example` data.
+
+Input
+-----
+
+Reads
++++++
+
+Reads are imported by placing files are linking to files in the
+:term:`working directory`.
+
+The default file format assumes the following convention:
+
+   <filename>.<suffix>
+
+The ``suffix`` determines the file type.  The
+following suffixes/file types are possible:
+
+fasta,fastq
+
+fasta.1,fastq.1
+
+fasta.gz,fastq.qz
+
+fasta.1.gz,fastq.1.gz
+
+Where unnumbered files relate to single end reads or inter-leaved paired-end files.
+Interleaved files should be detected automatically.
+Files containg 1 in the suffix will be assumed paired end and should be in the same 
+directory as the read 2 files, which share the same file name except for the read number.
+
+.. note::
+
+   Quality scores need to be of the same scale for all input files. Thus it might be
+   difficult to mix different formats.
+
+Optional inputs
++++++++++++++++
+
+Requirements
+------------
+
+On top of the default CGAT setup, the pipeline requires the following
+software to be in the path:
+
++--------------------+-------------------+------------------------------------------------+
+|*Program*           |*Version*          |*Purpose*                                       |
++--------------------+-------------------+------------------------------------------------+
+|megahit             |1.1.3              |Metagenomic Assembler                           |
++--------------------+-------------------+------------------------------------------------+
+|spades              |3.11.1             |Metagenomic Assembler                           |
++--------------------+-------------------+------------------------------------------------+
+|IDBA-UD             |1.1.1              |Metagenomic Assembler                           |
++--------------------+-------------------+------------------------------------------------+
+|seqtk               |1.0.r82-dirty      |Tools for reformating sequencing data           |
++--------------------+-------------------+------------------------------------------------+
+
+Pipeline output
+===============
+
+The main output is the genome assembly (contigs) - output as a fasta formatted file.
+Additional outputs include sumary statistics relating to contig size etc.
+
+Additional outputs are stored in the database file :file:`csvdb`.
+
+Glossary
+========
+
+.. glossary::
+
+Code
+====
+
+"""
+
+#load modules
+from ruffus import *
+import os
+
+import PipelineMetaAssemblyKit
+
+
+###################################################
+###################################################
+###################################################
+# Pipeline configuration
+###################################################
+# load options from the config file
+import CGATPipelines.Pipeline as P
+P.getParameters(
+    ["pipeline.ini"])
+PARAMS = P.PARAMS
+
+
+#get all files within the directory to process
+SEQUENCEFILES = ("*.fasta", "*.fasta.gz", "*.fasta.1.gz", "*.fasta.1",
+                 "*.fna", "*.fna.gz", "*.fna.1.gz", "*.fna.1",
+                 "*.fa", "*.fa.gz", "*.fa.1.gz", "*.fa.1", 
+                 "*.fastq", "*.fastq.gz", "*.fastq.1.gz","*.fastq.1")
+
+SEQUENCEFILES_REGEX = regex(
+    r"(\S+).(fasta$|fasta.gz|fasta.1.gz|fasta.1|fna$|fna.gz|fna.1.gz|fna.1|fa$|fa.gz|fa.1.gz|fa.1|fastq$|fastq.gz|fastq.1.gz|fastq.1)")
+
+
+###################################################
+# Check the input file, count number of reads
+###################################################
+@follows(mkdir("seqsummary.dir"))
+@transform(SEQUENCEFILES,
+           SEQUENCEFILES_REGEX,
+           r"\1.seqsummary")
+def checkFile(infile, outfile):
+    seqdat=PipelineMetaAssemblyKit.SequencingData(infile)
+    outf=open("seqsummary.dir/"+outfile,'w')
+    outf.write("{} is {} ".format(seqdat.filename,seqdat.fileformat))
+    if seqdat.compressed == True:
+        outf.write("compressed ")
+    else:
+        outf.write("uncompressed ")
+    if seqdat.paired == True:
+        outf.write("and is paired data.\n")
+    else:
+        outf.write("and is unpaired data.\n")
+    if seqdat.interleaved == True:
+        outf.write("{} is interleaved paired data.\n".format(seqdat.filename))
+    seqdat.readCount()
+    outf.write("{} contains {} reads.\n".format(seqdat.filename,seqdat.readcount))
+    outf.close()
+
+##################################################
+#Run Selected Assemblers
+##################################################
+    
+#get the list of assemblers to run on the data 
+ASSEMBLERS = P.asList(PARAMS.get("Assembler_assemblers", ""))
+    
+###################################################
+# Run Megahit
+###################################################
+@follows(checkFile)
+@active_if("megahit" in ASSEMBLERS)
+@follows(mkdir("megahit_out.dir"))
+@transform(SEQUENCEFILES,
+           SEQUENCEFILES_REGEX,
+           r"megahit_out.dir/\1/\1.contigs.fa")
+def runMegahit(infile, outfile):
+    seqdat=PipelineMetaAssemblyKit.SequencingData(infile)
+    assembler = PipelineMetaAssemblyKit.Megahit(seqdat,"megahit_out.dir",outfile,PARAMS)
+    statement = assembler.build()
+    P.run()
+
+###################################################
+# Run Metaspades
+###################################################
+@follows(checkFile)
+@active_if("metaspades" in ASSEMBLERS)
+@follows(mkdir("metaspades_out.dir"))
+@transform(SEQUENCEFILES,
+           SEQUENCEFILES_REGEX,
+           r"metaspades_out.dir/\1/contigs.fasta")
+def runMetaspades(infile,outfile):
+    seqdat = PipelineMetaAssemblyKit.SequencingData(infile)
+    if seqdat.paired == True:
+        assembler = PipelineMetaAssemblyKit.Metaspades(seqdat,"metaspades_out.dir",outfile,PARAMS)
+        statement = assembler.build()
+        P.run()
+    else:
+        print("cannot run metaspades on file {} as it requires paired-end data".format(seqdat.filename))
+
+
+###################################################
+# Run IDBA-UD
+###################################################
+#requires additional step to interleave non-interleaved fasta/fastq files
+@follows(checkFile)
+@active_if("idba_ud" in ASSEMBLERS)
+@follows(mkdir("idba_ud_out.dir"))
+@transform(SEQUENCEFILES,
+           SEQUENCEFILES_REGEX,
+           r"idba_ud_out.dir/\1/\1.interleaved.fa")
+def idbaudInterleave(infile,outfile):
+    seqdat = PipelineMetaAssemblyKit.SequencingData(infile)
+    if os.path.exists(os.getcwd()+"/idba_ud_out.dir/{}".format(seqdat.cleanname)) == False:
+        os.mkdir(os.getcwd()+"/idba_ud_out.dir/{}".format(seqdat.cleanname))
+    statement = PipelineMetaAssemblyKit.IdbaudInterleave(seqdat,os.getcwd(),outfile)
+    if statement != None:
+        #should log this statement
+        interleavelog = open(os.getcwd()+"/idba_ud_out.dir/{}/interleavelog.txt".format(seqdat.cleanname),'w')
+        interleavelog.write(statement)
+        interleavelog.close()
+        P.run()
+
+@follows(idbaudInterleave)
+@transform(idbaudInterleave,regex(r"(\S+).(interleaved.fa)"),r"\1.contigs.fa")
+def runIdbaud(infile,outfile):
+    print(infile)
+    print(outfile)
+    
+
+
+
+    
+#for testing purposes remove dirs to allow re-runing
+#@follows(runMegahit)
+#@follows(runMetaspades)
+#@follows(runIdbaud)
+#@follows(checkFile)
+def cleanup():
+    statement = "rm -r "+os.path.join(os.getcwd(),"seqsummary.dir/")
+    statement += "&& rm -r "+os.path.join(os.getcwd(),"megahit_out.dir/")
+    statement += "&& rm -r "+os.path.join(os.getcwd(),"metaspades_out.dir/")
+    statement += "&& rm -r "+os.path.join(os.getcwd(),'idba_ud_out.dir/')
+    P.run()
+    
+pipeline_run()
+
+
+
+

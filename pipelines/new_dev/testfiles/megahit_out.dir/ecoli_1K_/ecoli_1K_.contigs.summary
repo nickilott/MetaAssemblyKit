@@ -1,0 +1,2 @@
+n_contigs	contig_bp	gap_pct	ctg_N50	ctg_L50	ctg_N90	ctg_L90	ctg_logsum	ctg_max	gc_avg	gc_std
+1	1000	0.000	1	1000	1	1000	9.966	1000	0.50700	0.00000
