@@ -155,6 +155,8 @@ Code
 #load modules
 from ruffus import *
 import os
+import sys
+import math
 
 import PipelineMetaAssemblyKit
 
@@ -167,7 +169,9 @@ import PipelineMetaAssemblyKit
 # load options from the config file
 import CGATPipelines.Pipeline as P
 P.getParameters(
-    ["pipeline.ini"])
+       ["%s.ini" % __file__[:-len(".py")],
+       "../pipeline.ini",
+       "pipeline.ini" ] )
 PARAMS = P.PARAMS
 
 
@@ -214,9 +218,12 @@ ASSEMBLERS = P.asList(PARAMS.get("Assembler_assemblers", ""))
            SEQUENCEFILES_REGEX,
            r"megahit_out.dir/\1/\1.contigs.fa")
 def runMegahit(infile, outfile):
+    job_memory = str(PARAMS["Megahit_clus_memory"])+"G"
+    job_threads = PARAMS["Megahit_clus_threads"]
     seqdat=PipelineMetaAssemblyKit.SequencingData(infile)
     assembler = PipelineMetaAssemblyKit.Megahit(seqdat,"megahit_out.dir",PARAMS)
     statement = assembler.build()
+    to_cluster = True
     P.run()
 
 ###################################################
@@ -229,6 +236,8 @@ def runMegahit(infile, outfile):
            SEQUENCEFILES_REGEX,
            r"metaspades_out.dir/\1/contigs.fasta")
 def runMetaspades(infile,outfile):
+    job_memory = str(int(math.ceil(int(PARAMS["Metaspades_memory"])/int(PARAMS["Metaspades_threads"]))))+"G"
+    job_threads = PARAMS["Metaspades_threads"]
     seqdat = PipelineMetaAssemblyKit.SequencingData(infile)
     if seqdat.paired == True:
         assembler = PipelineMetaAssemblyKit.Metaspades(seqdat,"metaspades_out.dir",PARAMS)
@@ -254,16 +263,14 @@ def idbaudInterleave(infile,outfile):
         os.mkdir(os.getcwd()+"/idbaud_out.dir/{}".format(seqdat.cleanname))
     statement = PipelineMetaAssemblyKit.IdbaudInterleave(seqdat,os.getcwd(),outfile)
     if statement != None:
-        #should log this statement
-        interleavelog = open(os.getcwd()+"/idbaud_out.dir/{}/interleavelog.txt".format(seqdat.cleanname),'w')
-        interleavelog.write(statement)
-        interleavelog.close()
         P.run()
 
 @active_if("idba_ud" in ASSEMBLERS)
 @follows(idbaudInterleave)
 @transform(idbaudInterleave,regex(r"(\S+)/(\S+).(interleaved.fa)"),r"\1/contig.fa")
 def runIdbaud(infile,outfile):
+    job_memory = str(PARAMS["IDBAUD_clus_memory"])+"G"
+    job_threads = PARAMS["IDBAUD_clus_threads"]
     seqdat = PipelineMetaAssemblyKit.SequencingData(infile)
     assembler = PipelineMetaAssemblyKit.Idbaud(seqdat,"idbaud_out.dir",PARAMS)
     statement = assembler.build()
@@ -288,44 +295,57 @@ def collateContigfiles(infile,outfile):
 @follows(collateContigfiles)
 @transform([runMegahit,runMetaspades,runIdbaud],regex(r'(\S+)/(\S+)/(\S+)\..*$'),r'\1/\2/\3.summary')
 def summariseContigs(infile,outfile):
+    #summarise each contigs file 
+    statement = PipelineMetaAssemblyKit.SummariseContigs(infile,outfile)
+    P.run()
+
+@follows(summariseContigs)
+@merge(summariseContigs,'contigs.dir/Contigs.Summary')
+def mergeSummaries(infiles,summaryfile):
     #file to store all the stats combined
-    combstats=os.getcwd()+"/contigs.dir/Contigs.Summary"
-    #extract filenames and assembler names to add to summary text file
-    outdir=os.getcwd()+"/"+outfile
-    insplit=infile.split("/")
-    filen=insplit[1]
-    assem=insplit[0].split("_")[0]
+    print(mergeSummaries)
+    combstats = os.getcwd()+"/"+summaryfile
     statementlist = []
-    #summarise each contigs file in place
-    statementlist.append(PipelineMetaAssemblyKit.SummariseContigs(infile,outfile))
-    if os.path.isfile(combstats) == False:
-        #make file and add header
-        statementlist.append("touch {}".format(combstats))
-        statementlist.append("head -1 {} >>{}".format(outdir,combstats))
-        statementlist.append("sed  -i '1s/^/{}\\t{}\\t /' {}".format("file","assembler",combstats))
-    #just append the last line and add filename and assembler name
-    statementlist.append("tail -1 {} >> {}".format(outdir,combstats))
-    statementlist.append("sed -i '$s/^/{}\\t{}\\t /' {}".format(filen,assem,combstats))
+    in0 = os.getcwd()+"/"+infiles[0] 
+    statementlist.append("touch {}".format(combstats))
+    statementlist.append("head -1 {} >>{}".format(in0,combstats))
+    statementlist.append("sed  -i '1s/^/{}\\t{}\\t /' {}".format("file","assembler",combstats))
+    #extract filenames and assembler names to add to summary text file
+    for infile in infiles:
+        indir=os.getcwd()+"/"+infile
+        insplit=infile.split("/")
+        filen=insplit[1]
+        assem=insplit[0].split("_")[0]
+        #just append the last line and add filename and assembler name
+        statementlist.append("tail -1 {} >> {}".format(indir,combstats))
+        statementlist.append("sed -i '$s/^/{}\\t{}\\t /' {}".format(filen,assem,combstats))
     statement = " && ".join(statementlist)
     P.run()
     
 ###################################################
 # Clear-up unused directories
 ###################################################
-@follows(summariseContigs)
+@follows(mergeSummaries)
 def cleanupDirs():
     statementlist=[]
     if "megahit" not in ASSEMBLERS:
         statementlist.append("rm -r "+os.path.join(os.getcwd(),"megahit_out.dir/"))
     if "metaspades" not in ASSEMBLERS:
         statementlist.append("rm -r "+os.path.join(os.getcwd(),"metaspades_out.dir/"))
-    if "idba-ud" not in ASSEMBLERS:
+    if "idba_ud" not in ASSEMBLERS:
         statementlist.append("rm -r "+os.path.join(os.getcwd(),'idbaud_out.dir/'))
-    statement=" && ".join(statementlist)
-    P.run()
+    if statementlist != []:
+        statement=" && ".join(statementlist)
+        P.run()
+
+@follows(cleanupDirs)
+def full():
+    pass
     
-pipeline_run()
-
-
-
-
+if __name__ == "__main__":
+    if sys.argv[1] == "plot":
+        pipeline_printout_graph("test.pdf", "pdf", [full], no_key_legend=True,
+                                size=(4, 4),
+                                user_colour_scheme = {"colour_scheme_index": 1})
+    else:
+        sys.exit(P.main(sys.argv))

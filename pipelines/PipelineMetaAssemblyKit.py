@@ -263,7 +263,7 @@ class Idbaud (Assembler):
         methlist.append("--prefix {}".format(self.params[m+"prefix"]))
         methlist.append("--min_count {}".format(self.params[m+"min_count"]))
         methlist.append("--min_support {}".format(self.params[m+"min_support"]))
-        methlist.append("--num_threads {}".format(self.params[m+"num_threads"]))
+        methlist.append("--num_threads {}".format(self.params[m+"clus_threads"]))
         methlist.append("--seed_kmer {}".format(self.params[m+"seed_kmer"]))
         methlist.append("--min_contig {}".format(self.params[m+"min_contig"]))
         methlist.append("--similar {}".format(self.params[m+"similar"]))
