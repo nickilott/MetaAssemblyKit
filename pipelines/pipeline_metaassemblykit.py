@@ -338,9 +338,18 @@ def cleanupDirs():
         statement=" && ".join(statementlist)
         P.run()
 
+
 @follows(cleanupDirs)
 def full():
     pass
+
+@follows(mergeSummaries)
+@follows(mkdir("report.dir"))
+def build_report():
+   scriptloc =  "/".join(os.path.dirname(sys.argv[0]).split("/")[0:-1])+"/scripts/assembly_report.Rmd"
+   statement = 'R -e "rmarkdown::render(\'{}\',output_file=\'{}/report.dir/assembly_report.html\')" --args {}/contigs.dir/Contigs.Summary'.format(scriptloc,os.getcwd(),os.getcwd())
+   P.run()
+   
     
 if __name__ == "__main__":
     if sys.argv[1] == "plot":
