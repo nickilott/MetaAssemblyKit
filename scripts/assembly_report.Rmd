@@ -1,6 +1,8 @@
 ---
 title: "Summary of Metagenomic Read Assembly"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +15,6 @@ cpal=4
 
 ```{r, echo=FALSE}
 sfile=read.table(commandArgs(trailingOnly=T)[1],sep="\t",header=T)
-
 assemblers=paste(unique(sfile$assembler),collapse=", ")
 fcount=length(unique(sfile$file))
 
@@ -49,7 +50,7 @@ for(i in unique(sfile$assembler)){
   methmelt=melt(methres,id=c(1))
   methmelt$File=factor(methmelt$File,levels=as.character(methres$File))
   mplot=ggplot(methmelt,aes(x=File,y=value,fill=variable))+geom_bar(stat="identity")+facet_grid(~variable,scales="free_x")+
-    theme_classic()+coord_flip()+scale_fill_brewer(type = "qual", palette = cpal)+guides(fill=FALSE)+
+    theme_classic()+coord_flip()+scale_fill_brewer(type = "qual", palette = 5)+guides(fill=FALSE)+
     theme(axis.text.x = element_text(angle = 45,hjust = 1,size=8),axis.text.y =element_text(size = 8))+
     theme(axis.title = element_blank())
   plot(mplot)

@@ -1,1 +1,2 @@
-Collection of tools for metagenome/metatranscriptome assembly.
+# MetaAssemblyKit
+Collection of tools for metagenome/transcriptome assembly.
